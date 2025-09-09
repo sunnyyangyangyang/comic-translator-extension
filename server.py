@@ -19,7 +19,7 @@ import requests
 import os # 推荐导入，用于后续优化
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域请求
+CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
 
 # 全局变量存储模型
 model_session = None
@@ -276,6 +276,16 @@ def health_check():
         "status": "healthy",
         "model_loaded": model_loaded
     })
+
+@app.before_request
+def log_request_info():
+    """在每个请求处理前打印日志"""
+    print(f"\n>>> 收到请求: {request.method} {request.path}")
+    if request.data:
+        print(f"    - 请求体大小: {len(request.data)} bytes")
+    if request.headers:
+        print(f"    - Content-Type: {request.headers.get('Content-Type')}")
+        print(f"    - Origin: {request.headers.get('Origin')}")
 
 @app.route('/process_batch', methods=['POST'])
 def process_batch():
