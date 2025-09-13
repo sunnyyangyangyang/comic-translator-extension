@@ -186,7 +186,7 @@ def perform_ocr(image, boxes, padding_pixels=2):
     img_h, img_w = image.shape[:2]
     for i, current_box in enumerate(boxes):
         box_num = i + 1
-        x, y, w, h = current_box
+        x, y, w, h = [int(v) for v in current_box]
         x1, y1 = max(0, x - padding_pixels), max(0, y - padding_pixels)
         x2, y2 = min(img_w, x + w + padding_pixels), min(img_h, y + h + padding_pixels)
         if not (x2 > x1 and y2 > y1):
