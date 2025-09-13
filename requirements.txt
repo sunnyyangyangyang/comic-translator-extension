@@ -1,0 +1,10 @@
+click
+requests
+rich
+flask
+flask-cors
+opencv-python
+onnxruntime-gpu[cuda]
+playwright
+Pillow
+aiohttp
