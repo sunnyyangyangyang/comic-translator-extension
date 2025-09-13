@@ -89,9 +89,16 @@ class ComicOCRLauncher:
             console.print("[dim yellow]未在虚拟环境中找到NVIDIA库, 将使用系统默认路径。这可能会导致CUDA失败。[/dim yellow]")
 
         self.flask_process = subprocess.Popen(
-            [sys.executable, script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, bufsize=1, env=env
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            env=env,
+            # [关键] 在Linux/macOS上, 启动一个新的进程组
+            preexec_fn=os.setsid if sys.platform != "win32" else None
         )
+        
         
         start_time = time.time()
         timeout = 20
@@ -117,13 +124,33 @@ class ComicOCRLauncher:
         return False
 
     def stop_flask_server(self):
+        """[加强版] 确保Flask服务器及其所有子进程都被彻底终结。"""
         if self.flask_process:
-            console.print("[yellow]正在停止Flask服务器...[/yellow]")
-            self.flask_process.terminate()
-            try: self.flask_process.wait(timeout=5)
-            except subprocess.TimeoutExpired: self.flask_process.kill()
+            console.print("[yellow]正在强制停止Flask服务器...[/yellow]")
+            
+            # 获取进程ID
+            pid = self.flask_process.pid
+            
+            try:
+                # 根据操作系统使用不同的、更强大的终结方法
+                if sys.platform == "win32":
+                    # 在Windows上, 使用 taskkill 强制杀死进程树
+                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], check=True, capture_output=True)
+                else:
+                    # 在Linux/macOS上, 使用 os.killpg 杀死整个进程组
+                    # 这会杀死由Popen启动的shell及其所有子进程
+                    import os
+                    import signal
+                    os.killpg(os.getpgid(pid), signal.SIGKILL)
+                
+                self.flask_process.wait(timeout=5) # 等待进程状态更新
+                console.print("[green]✓ Flask服务器已确认停止[/green]")
+
+            except (ProcessLookupError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                # 如果进程已经自己退出了，或者出了其他问题，也认为是停止了
+                console.print(f"[dim yellow]服务器进程可能已自行退出或终结失败: {e}[/dim yellow]")
+            
             self.flask_process = None
-            console.print("[green]✓ Flask服务器已停止[/green]")
 
     @staticmethod
     def is_server_running():
